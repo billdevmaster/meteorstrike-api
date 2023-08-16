@@ -59,17 +59,21 @@ app.post('/saveScore', async (req, res) => {
 
 app.get('/getScore', async (req, res) => {
   const { start, limit } = req.query;
-  const sql = `SELECT address, score from (SELECT address, MAX(score) as score FROM scores GROUP BY address) as t1 ORDER BY t1.score DESC LIMIT ${start}, ${limit}`;
+  // get total count
+  let sql = "SELECT address, MAX(score) as score FROM scores GROUP BY address";
+  const totalCntResult = await executeQuery(sql);
+  const totalCnt = totalCntResult.length;
+  sql = `SELECT address, score from (SELECT address, MAX(score) as score FROM scores GROUP BY address) as t1 ORDER BY t1.score DESC LIMIT ${start}, ${limit}`;
   connection.query(sql, async (err, result) => {
     if (err) throw err;
     if (result.length > 0) {
       const tmpArr = []
       for (let i = 0; i < result.length; i++) {
-        const sql1 = `SELECT address, createdAt, score FROM scores WHERE address='${result[i].address}' AND score=${result[i].score} ORDER BY createdAt LIMIT 1`;
-        const result1 = await executeQuery(sql1);
+        sql = `SELECT address, createdAt, score FROM scores WHERE address='${result[i].address}' AND score=${result[i].score} ORDER BY createdAt LIMIT 1`;
+        const result1 = await executeQuery(sql);
         tmpArr.push({ address: result1[0].address, score: result1[0].score, createdAt: result1[0].createdAt });
       }
-      res.json(tmpArr);
+      res.json({list: tmpArr, totalCnt});
     } else {
       res.json([]);
     }
