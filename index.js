@@ -57,19 +57,45 @@ app.post('/saveScore', async (req, res) => {
   }
 });
 
+app.post('/saveGameScore', async (req, res) => {
+  const {hash, address, score, gameName} = req.body;
+  const input = address + score + gameName + secretEncryptionKey;
+  const hashServer = hashString(input);
+  let sql = "";
+  if (hashServer == hash) {
+    // save 
+      sql = `INSERT INTO ${gameName}-score (
+        address, 
+        score) VALUES (
+        '${address}', 
+        ${score})`;
+    try {
+      connection.query(sql, (err1, result1) => {
+        if (err1) throw err1;
+        console.log(result1);
+        res.json("success");
+      });
+    } catch (e) {
+      res.json("fail");
+    }
+  } else {
+    res.json("fail");
+  }
+});
+
 app.get('/getScore', async (req, res) => {
-  const { start, limit } = req.query;
+  const { start, limit, gameName } = req.query;
   // get total count
-  let sql = "SELECT address, MAX(score) as score FROM scores GROUP BY address";
+  let sql = `SELECT address, MAX(score) as score FROM ${gameName}-score GROUP BY address`;
   const totalCntResult = await executeQuery(sql);
   const totalCnt = totalCntResult.length;
-  sql = `SELECT address, score from (SELECT address, MAX(score) as score FROM scores GROUP BY address) as t1 ORDER BY t1.score DESC LIMIT ${start}, ${limit}`;
+  sql = `SELECT address, score from (SELECT address, MAX(score) as score FROM ${gameName}-score GROUP BY address) as t1 ORDER BY t1.score DESC LIMIT ${start}, ${limit}`;
   connection.query(sql, async (err, result) => {
     if (err) throw err;
     if (result.length > 0) {
       const tmpArr = []
       for (let i = 0; i < result.length; i++) {
-        sql = `SELECT address, createdAt, score FROM scores WHERE address='${result[i].address}' AND score=${result[i].score} ORDER BY createdAt LIMIT 1`;
+        sql = `SELECT address, createdAt, score FROM ${gameName}-score WHERE address='${result[i].address}' AND score=${result[i].score} ORDER BY createdAt LIMIT 1`;
         const result1 = await executeQuery(sql);
         tmpArr.push({ address: result1[0].address, score: result1[0].score, createdAt: result1[0].createdAt });
       }
